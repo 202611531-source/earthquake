@@ -21,16 +21,27 @@ SCALER_PATH = os.path.join(CURRENT_DIR, "scaler.pkl")
 # 3. 데이터 로드 함수
 @st.cache_data
 def load_data():
-    if os.path.exists(CSV_PATH):
-        return pd.read_csv(CSV_PATH)
+    if not os.path.exists(CSV_PATH):
+        return None
+    
+    # 한국어 환경에서 주로 쓰이는 인코딩 방식을 순서대로 시도합니다.
+    encodings = ['utf-8', 'cp949', 'euc-kr']
+    
+    for encoding in encodings:
+        try:
+            # 성공하면 바로 데이터프레임을 반환합니다.
+            return pd.read_csv(CSV_PATH, encoding=encoding)
+        except UnicodeDecodeError:
+            continue  # 에러가 나면 다음 인코딩 방식으로 넘어갑니다.
+            
+    # 모든 인코딩이 실패할 경우 최종 에러 처리
     return None
 
 df_new = load_data()
 
 if df_new is None:
-    st.error("❌ 'Earthquakes.csv' 파일이 없습니다.")
+    st.error("❌ 'Earthquakes.csv' 파일을 읽을 수 없습니다. 파일의 글자 인코딩 형식을 확인해 주세요.")
     st.stop()
-
 # 4. 세션 상태 초기화
 if 'clicked' not in st.session_state:
     st.session_state.clicked = False
