@@ -32,9 +32,10 @@ def load_data():
         except:
             continue
     
+    # 최후 수단: latin1은 거의 모든 바이트를 읽을 수 있어 errors 인자 불필요
     try:
-        df = pd.read_csv(CSV_PATH, encoding='utf-8', errors='replace')
-        return df, "⚠️ 강제 읽기 모드"
+        df = pd.read_csv(CSV_PATH, encoding='latin1')
+        return df, "⚠️ latin1 강제 읽기 모드 (일부 글자 깨질 수 있음)"
     except Exception as e:
         return None, f"❌ 최종 실패: {e}"
 
