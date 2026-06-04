@@ -121,10 +121,22 @@ if st.session_state.clicked:
     col_left, col_right = st.columns([1, 2]) # 1:2 비율
 
     with col_left:
+        # --- 🛠️ 디버그: 실제 컬럼명 확인 ---
+        st.write("📋 CSV 컬럼 목록:", df_new.columns.tolist())
+        st.write("📄 첫 3행 미리보기:", df_new.head(3))
+
         # --- AI 분석 로직 ---
+        # ✅ 컬럼명 자동 감지 (한글/영어 둘 다 대응)
+        col_lat  = '위도'       if '위도'       in df_new.columns else 'latitude'
+        col_lon  = '경도'       if '경도'       in df_new.columns else 'longitude'
+        col_mag  = '규모'       if '규모'       in df_new.columns else 'magnitude'
+        col_imp  = '영향도'     if '영향도'     in df_new.columns else 'impact'
+        col_dep  = '진원깊이'   if '진원깊이'   in df_new.columns else 'depth'
+        col_cls  = 'cluster'
+
         near_df = df_new[
-            (df_new['위도'] >= lat - 5) & (df_new['위도'] <= lat + 5) & 
-            (df_new['경도'] >= lon - 5) & (df_new['경도'] <= lon + 5)
+            (df_new[col_lat] >= lat - 5) & (df_new[col_lat] <= lat + 5) &
+            (df_new[col_lon] >= lon - 5) & (df_new[col_lon] <= lon + 5)
         ]
 
         if near_df.empty:
@@ -134,9 +146,9 @@ if st.session_state.clicked:
                 model = joblib.load(MODEL_PATH)
                 scaler = joblib.load(SCALER_PATH)
                 
-                avg_magnitude = near_df['규모'].mean() if '규모' in near_df.columns else 3.0
-                avg_impact = near_df['영향도'].mean() if '영향도' in near_df.columns else 1.0
-                avg_depth = near_df['진원깊이'].mean() if '진원깊이' in near_df.columns else 10.0
+                avg_magnitude = near_df[col_mag].mean() if col_mag in near_df.columns else 3.0
+                avg_impact    = near_df[col_imp].mean() if col_imp in near_df.columns else 1.0
+                avg_depth     = near_df[col_dep].mean() if col_dep in near_df.columns else 10.0
                 
                 temp_dict = {'위도': lat, '경도': lon, '규모': avg_magnitude, '영향도': avg_impact, '진원깊이': avg_depth}
                 model_cols = list(scaler.feature_names_in_)
@@ -149,7 +161,6 @@ if st.session_state.clicked:
                 risk_label = risk_dict.get(main_cluster, "UNKNOWN")
                 style = card_styles.get(main_cluster, {"text": "#FFFFFF", "shadow": "#FFFFFF"})
 
-                # 좌측 결과 카드 출력
                 st.markdown(f"""
                     <div class="result-box" style="border-color: {style['text']}; box-shadow: 0 0 20px {style['shadow']};">
                         <p style="font-size:0.9rem; color:#888 !important;">// ANALYSIS RESULT</p>
