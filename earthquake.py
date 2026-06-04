@@ -9,7 +9,7 @@ import joblib
 st.set_page_config(
     page_title="BLACK MATRIX AI", 
     page_icon="🌌",
-    layout="wide"
+    layout="wide" # 가로로 넓게 쓰기 위해 설정
 )
 
 # 2. 파일 경로 설정
@@ -18,48 +18,41 @@ CSV_PATH = os.path.join(CURRENT_DIR, "Earthquakes.csv")
 MODEL_PATH = os.path.join(CURRENT_DIR, "model.pkl")
 SCALER_PATH = os.path.join(CURRENT_DIR, "scaler.pkl")
 
-# 3. 데이터 로드 함수 (캐시 안에서 st. 함수 사용 금지)
+# 3. 데이터 로드 함수
 @st.cache_data
 def load_data():
-    if not os.path.exists(CSV_PATH):
-        return None, f"파일 없음: {CSV_PATH}"
-    
-    encodings = ['utf-8', 'utf-8-sig', 'cp949', 'euc-kr', 'latin1']
-    
-    # 구분자 후보
-    separators = [',', ';', '\t', '|']
-    
-    for encoding in encodings:
-        for sep in separators:
-            try:
-                df = pd.read_csv(CSV_PATH, encoding=encoding, sep=sep, on_bad_lines='skip')
-                if len(df.columns) > 1:  # 컬럼이 2개 이상이어야 정상
-                    return df, f"✅ encoding='{encoding}', sep='{sep}' 로 성공"
-            except TypeError:
-                # 구버전 pandas는 on_bad_lines 대신 error_bad_lines 사용
-                try:
-                    df = pd.read_csv(CSV_PATH, encoding=encoding, sep=sep, error_bad_lines=False)
-                    if len(df.columns) > 1:
-                        return df, f"✅ encoding='{encoding}', sep='{sep}' 로 성공 (구버전)"
-                except:
-                    continue
-            except:
-                continue
-    
-    return None, "❌ 모든 방법 실패 — CSV 파일 구조를 확인해주세요"
+    if os.path.exists(CSV_PATH):
+        return pd.read_csv(CSV_PATH)
+    return None
 
-# 4. 데이터 로드 실행
-df_new, load_msg = load_data()
+df_new = load_data()
 
-# 5. CSS 스타일링
+if df_new is None:
+    st.error("❌ 'Earthquakes.csv' 파일이 없습니다.")
+    st.stop()
+
+# 4. 세션 상태 초기화
+if 'clicked' not in st.session_state:
+    st.session_state.clicked = False
+
+# --- 🛠️ 블랙 & 네온 CSS 스타일링 ---
 st.markdown("""
     <style>
-        .stApp { background-color: #000000 !important; }
+        /* 배경을 완전한 블랙으로 고정 */
+        .stApp {
+            background-color: #000000 !important;
+        }
+        /* 모든 텍스트 색상을 밝게 */
         h1, h2, h3, p, span, label {
             color: #FFFFFF !important;
             font-family: 'Courier New', Courier, monospace !important;
         }
-        .stNumberInput label { color: #00F0FF !important; font-weight: bold; }
+        /* 입력창 라벨 색상 */
+        .stNumberInput label {
+            color: #00F0FF !important;
+            font-weight: bold;
+        }
+        /* 사이버펑크 타이틀 */
         .cyber-title {
             font-size: 2.5rem !important;
             font-weight: 900 !important;
@@ -68,6 +61,7 @@ st.markdown("""
             text-align: center;
             margin-bottom: 0px;
         }
+        /* 결과 카드 디자인 */
         .result-box {
             background-color: #080808;
             border: 2px solid #FF007F;
@@ -80,33 +74,14 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 6. 헤더
+# 5. 상단 헤더 구역
 st.markdown('<p class="cyber-title">⚡ BLACK-MATRIX SEISMIC GRID</p>', unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#FF007F !important;'>SYSTEM STATUS: ONLINE // NEURAL-LINK ACTIVE</p>", unsafe_allow_html=True)
 
-# 파일 로드 결과 표시
-if df_new is None:
-    st.error(f"❌ CSV 로드 실패 — {load_msg}")
-    st.write("📂 시도한 경로:", CSV_PATH)
-    st.write("📂 파일 존재 여부:", os.path.exists(CSV_PATH))
-    st.stop()
-else:
-    st.info(load_msg)
-    # 디버그: 컬럼명 확인 (문제 해결 후 아래 2줄 삭제)
-    st.write("📋 컬럼 목록:", df_new.columns.tolist())
-    st.write("📄 미리보기:", df_new.head(2))
-
-# 7. 컬럼명 확인
-st.write("📋 실제 컬럼 목록:", df_new.columns.tolist())
-st.stop()
-
-# 8. 세션 상태 초기화
-if 'clicked' not in st.session_state:
-    st.session_state.clicked = False
-
-# 9. 입력 UI
+# 6. [상단 배치] 입력 UI (사이드바 대신 메인 상단 컬럼 사용)
 st.markdown("<div style='background-color:#111; padding:20px; border-radius:10px; border:1px solid #333;'>", unsafe_allow_html=True)
 input_col1, input_col2, input_col3 = st.columns([2, 2, 1])
+
 with input_col1:
     lat = st.number_input("TARGET LATITUDE (위도)", value=37.5665, format="%.4f")
 with input_col2:
@@ -126,14 +101,16 @@ card_styles = {
     2: {"text": "#39FF14", "shadow": "#39FF14"}
 }
 
-# 10. 메인 레이아웃
+# 7. 메인 레이아웃 (좌측 결과, 우측 지도)
 if st.session_state.clicked:
-    col_left, col_right = st.columns([1, 2])
+    # 화면 분할
+    col_left, col_right = st.columns([1, 2]) # 1:2 비율
 
     with col_left:
+        # --- AI 분석 로직 ---
         near_df = df_new[
-            (df_new[col_lat] >= lat - 5) & (df_new[col_lat] <= lat + 5) &
-            (df_new[col_lon] >= lon - 5) & (df_new[col_lon] <= lon + 5)
+            (df_new['위도'] >= lat - 5) & (df_new['위도'] <= lat + 5) & 
+            (df_new['경도'] >= lon - 5) & (df_new['경도'] <= lon + 5)
         ]
 
         if near_df.empty:
@@ -142,32 +119,27 @@ if st.session_state.clicked:
             try:
                 model = joblib.load(MODEL_PATH)
                 scaler = joblib.load(SCALER_PATH)
-
-                avg_magnitude = near_df[col_mag].mean() if col_mag in near_df.columns else 3.0
-                avg_impact    = near_df[col_imp].mean() if col_imp in near_df.columns else 1.0
-                avg_depth     = near_df[col_dep].mean() if col_dep in near_df.columns else 10.0
-
+                
+                avg_magnitude = near_df['규모'].mean() if '규모' in near_df.columns else 3.0
+                avg_impact = near_df['영향도'].mean() if '영향도' in near_df.columns else 1.0
+                avg_depth = near_df['진원깊이'].mean() if '진원깊이' in near_df.columns else 10.0
+                
+                temp_dict = {'위도': lat, '경도': lon, '규모': avg_magnitude, '영향도': avg_impact, '진원깊이': avg_depth}
                 model_cols = list(scaler.feature_names_in_)
-                temp_dict = {col: None for col in model_cols}
-                temp_dict.update({
-                    col_lat: lat, col_lon: lon,
-                    col_mag: avg_magnitude,
-                    col_imp: avg_impact,
-                    col_dep: avg_depth
-                })
                 pred_features = pd.DataFrame([temp_dict])[model_cols]
-
+                
                 features_scaled = scaler.transform(pred_features)
                 predicted_cluster = model.predict(pd.DataFrame(features_scaled, columns=model_cols))[0]
-
+                
                 main_cluster = int(predicted_cluster)
                 risk_label = risk_dict.get(main_cluster, "UNKNOWN")
                 style = card_styles.get(main_cluster, {"text": "#FFFFFF", "shadow": "#FFFFFF"})
 
+                # 좌측 결과 카드 출력
                 st.markdown(f"""
-                    <div class="result-box" style="border-color:{style['text']}; box-shadow:0 0 20px {style['shadow']};">
+                    <div class="result-box" style="border-color: {style['text']}; box-shadow: 0 0 20px {style['shadow']};">
                         <p style="font-size:0.9rem; color:#888 !important;">// ANALYSIS RESULT</p>
-                        <h2 style="color:{style['text']} !important; text-shadow:0 0 10px {style['text']}; font-size:2.2rem;">
+                        <h2 style="color:{style['text']} !important; text-shadow: 0 0 10px {style['text']}; font-size:2.2rem;">
                             {risk_label}
                         </h2>
                         <p style="color:#555 !important; font-size:0.8rem; margin-top:20px;">Grid Coords: {lat}, {lon}</p>
@@ -177,25 +149,27 @@ if st.session_state.clicked:
                 st.error(f"MATRIX ERROR: {e}")
 
     with col_right:
+        # 우측 지도 출력
         m = folium.Map(location=[lat, lon], zoom_start=5, tiles="CartoDB dark_matter")
-
+        
         sample_df = df_new.sample(n=min(1000, len(df_new)), random_state=42)
         for _, row in sample_df.iterrows():
-            c_idx = int(row[col_cls]) if col_cls and col_cls in row else 0
+            c_idx = int(row['cluster']) if 'cluster' in row else 0
             m_color = colors.get(c_idx, '#555')
             folium.CircleMarker(
-                location=[row[col_lat], row[col_lon]],
+                location=[row['위도'], row['경도']],
                 radius=3, color=m_color, fill=True, fill_color=m_color, fill_opacity=0.7
             ).add_to(m)
-
+            
         folium.Marker(
             location=[lat, lon],
             icon=folium.Icon(color='darkpurple', icon='star', icon_color='#39FF14')
         ).add_to(m)
-
+        
         st_folium(m, width="100%", height=600, key="main_map")
 
 else:
+    # 초기 화면 안내 (전체 너비 사용)
     st.markdown("""
         <div style="margin-top:100px; text-align:center; border:1px dashed #444; padding:50px;">
             <h3 style="color:#444 !important;">AWAITING SCAN COMMAND...</h3>
