@@ -37,6 +37,7 @@ def load_data():
             continue
     
     # 최후 수단: errors='replace'로 강제 읽기
+    # 최후 수단: errors='replace'로 강제 읽기
     try:
         df = pd.read_csv(CSV_PATH, encoding='utf-8', errors='replace')
         st.warning("⚠️ 일부 글자가 깨질 수 있습니다 (강제 읽기 모드).")
@@ -44,7 +45,15 @@ def load_data():
     except Exception as e:
         st.error(f"❌ 파일 읽기 최종 실패: {e}")
         return None
-        
+
+# ✅ 여기에 추가
+df_new = load_data()
+st.write("CSV 경로:", CSV_PATH)
+st.write("파일 존재 여부:", os.path.exists(CSV_PATH))
+if df_new is None:
+    st.error("❌ 파일을 읽을 수 없습니다.")
+    st.stop()
+
 # 4. 세션 상태 초기화
 if 'clicked' not in st.session_state:
     st.session_state.clicked = False
