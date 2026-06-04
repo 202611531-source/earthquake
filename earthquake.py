@@ -96,13 +96,9 @@ else:
     st.write("📋 컬럼 목록:", df_new.columns.tolist())
     st.write("📄 미리보기:", df_new.head(2))
 
-# 7. 컬럼명 자동 감지
-col_lat = '위도'     if '위도'     in df_new.columns else 'latitude'
-col_lon = '경도'     if '경도'     in df_new.columns else 'longitude'
-col_mag = '규모'     if '규모'     in df_new.columns else 'magnitude'
-col_imp = '영향도'   if '영향도'   in df_new.columns else 'impact'
-col_dep = '진원깊이' if '진원깊이' in df_new.columns else 'depth'
-col_cls = 'cluster'  if 'cluster'  in df_new.columns else None
+# 7. 컬럼명 확인
+st.write("📋 실제 컬럼 목록:", df_new.columns.tolist())
+st.stop()
 
 # 8. 세션 상태 초기화
 if 'clicked' not in st.session_state:
