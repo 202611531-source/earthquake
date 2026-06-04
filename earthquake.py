@@ -24,20 +24,29 @@ def load_data():
     if not os.path.exists(CSV_PATH):
         return None, f"파일 없음: {CSV_PATH}"
     
-    encodings = ['utf-8', 'utf-8-sig', 'cp949', 'euc-kr', 'latin1', 'iso-8859-1']
-    for encoding in encodings:
-        try:
-            df = pd.read_csv(CSV_PATH, encoding=encoding)
-            return df, f"✅ '{encoding}' 인코딩 성공"
-        except:
-            continue
+    encodings = ['utf-8', 'utf-8-sig', 'cp949', 'euc-kr', 'latin1']
     
-    # 최후 수단: latin1은 거의 모든 바이트를 읽을 수 있어 errors 인자 불필요
-    try:
-        df = pd.read_csv(CSV_PATH, encoding='latin1')
-        return df, "⚠️ latin1 강제 읽기 모드 (일부 글자 깨질 수 있음)"
-    except Exception as e:
-        return None, f"❌ 최종 실패: {e}"
+    # 구분자 후보
+    separators = [',', ';', '\t', '|']
+    
+    for encoding in encodings:
+        for sep in separators:
+            try:
+                df = pd.read_csv(CSV_PATH, encoding=encoding, sep=sep, on_bad_lines='skip')
+                if len(df.columns) > 1:  # 컬럼이 2개 이상이어야 정상
+                    return df, f"✅ encoding='{encoding}', sep='{sep}' 로 성공"
+            except TypeError:
+                # 구버전 pandas는 on_bad_lines 대신 error_bad_lines 사용
+                try:
+                    df = pd.read_csv(CSV_PATH, encoding=encoding, sep=sep, error_bad_lines=False)
+                    if len(df.columns) > 1:
+                        return df, f"✅ encoding='{encoding}', sep='{sep}' 로 성공 (구버전)"
+                except:
+                    continue
+            except:
+                continue
+    
+    return None, "❌ 모든 방법 실패 — CSV 파일 구조를 확인해주세요"
 
 # 4. 데이터 로드 실행
 df_new, load_msg = load_data()
