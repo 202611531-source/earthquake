@@ -18,32 +18,16 @@ CSV_PATH = os.path.join(CURRENT_DIR, "Earthquakes.csv")
 MODEL_PATH = os.path.join(CURRENT_DIR, "model.pkl")
 SCALER_PATH = os.path.join(CURRENT_DIR, "scaler.pkl")
 
-# 3. 데이터 로드 함수
+# 3. 데이터 로드 함수 (joblib 바이너리로 읽기)
 @st.cache_data
 def load_data():
     if not os.path.exists(CSV_PATH):
         return None, f"파일 없음: {CSV_PATH}"
-    
-    encodings = ['utf-8', 'utf-8-sig', 'cp949', 'euc-kr', 'latin1']
-    separators = [',', ';', '\t', '|']
-    
-    for encoding in encodings:
-        for sep in separators:
-            try:
-                df = pd.read_csv(CSV_PATH, encoding=encoding, sep=sep, on_bad_lines='skip')
-                if len(df.columns) > 1:
-                    return df, f"✅ encoding='{encoding}', sep='{sep}'"
-            except TypeError:
-                try:
-                    df = pd.read_csv(CSV_PATH, encoding=encoding, sep=sep, error_bad_lines=False)
-                    if len(df.columns) > 1:
-                        return df, f"✅ encoding='{encoding}', sep='{sep}' (구버전)"
-                except:
-                    continue
-            except:
-                continue
-    
-    return None, "❌ 모든 방법 실패"
+    try:
+        df = joblib.load(CSV_PATH)
+        return df, "✅ 데이터 로드 성공"
+    except Exception as e:
+        return None, f"❌ 로드 실패: {e}"
 
 # 4. 데이터 로드 실행
 df_new, load_msg = load_data()
@@ -83,19 +67,16 @@ st.markdown("<p style='text-align:center; color:#FF007F !important;'>SYSTEM STAT
 
 # 파일 로드 실패 시 중단
 if df_new is None:
-    st.error(f"❌ CSV 로드 실패 — {load_msg}")
+    st.error(f"❌ 데이터 로드 실패 — {load_msg}")
     st.stop()
 
-# 컬럼명 확인용 (확인 후 이 줄 삭제)
-st.write("📋 컬럼 목록:", df_new.columns.tolist())
-
-# 7. 컬럼명 자동 감지
-col_lat = '위도'     if '위도'     in df_new.columns else 'latitude'
-col_lon = '경도'     if '경도'     in df_new.columns else 'longitude'
-col_mag = '규모'     if '규모'     in df_new.columns else 'magnitude'
-col_imp = '영향도'   if '영향도'   in df_new.columns else 'impact'
-col_dep = '진원깊이' if '진원깊이' in df_new.columns else 'depth'
-col_cls = 'cluster'  if 'cluster'  in df_new.columns else None
+# 7. 컬럼명 (확인 완료: 한글)
+col_lat = '위도'
+col_lon = '경도'
+col_mag = '규모'
+col_imp = '영향도'
+col_dep = '진원깊이'
+col_cls = 'cluster' if 'cluster' in df_new.columns else None
 
 # 8. 세션 상태 초기화
 if 'clicked' not in st.session_state:
@@ -140,18 +121,17 @@ if st.session_state.clicked:
                 model = joblib.load(MODEL_PATH)
                 scaler = joblib.load(SCALER_PATH)
 
-                avg_magnitude = near_df[col_mag].mean() if col_mag in near_df.columns else 3.0
-                avg_impact    = near_df[col_imp].mean() if col_imp in near_df.columns else 1.0
-                avg_depth     = near_df[col_dep].mean() if col_dep in near_df.columns else 10.0
+                avg_magnitude = near_df[col_mag].mean()
+                avg_impact    = near_df[col_imp].mean()
+                avg_depth     = near_df[col_dep].mean()
 
                 model_cols = list(scaler.feature_names_in_)
-                temp_dict = {col: None for col in model_cols}
-                temp_dict.update({
+                temp_dict = {
                     col_lat: lat, col_lon: lon,
                     col_mag: avg_magnitude,
                     col_imp: avg_impact,
                     col_dep: avg_depth
-                })
+                }
                 pred_features = pd.DataFrame([temp_dict])[model_cols]
 
                 features_scaled = scaler.transform(pred_features)
