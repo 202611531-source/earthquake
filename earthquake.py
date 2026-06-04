@@ -22,26 +22,29 @@ SCALER_PATH = os.path.join(CURRENT_DIR, "scaler.pkl")
 @st.cache_data
 def load_data():
     if not os.path.exists(CSV_PATH):
+        st.error(f"❌ 파일을 찾을 수 없습니다: {CSV_PATH}")
         return None
     
-    # 한국어 환경에서 주로 쓰이는 인코딩 방식을 순서대로 시도합니다.
-    encodings = ['utf-8', 'cp949', 'euc-kr']
+    # 시도할 인코딩 목록 확장
+    encodings = ['utf-8', 'utf-8-sig', 'cp949', 'euc-kr', 'latin1', 'iso-8859-1']
     
     for encoding in encodings:
         try:
-            # 성공하면 바로 데이터프레임을 반환합니다.
-            return pd.read_csv(CSV_PATH, encoding=encoding)
-        except UnicodeDecodeError:
-            continue  # 에러가 나면 다음 인코딩 방식으로 넘어갑니다.
-            
-    # 모든 인코딩이 실패할 경우 최종 에러 처리
-    return None
-
-df_new = load_data()
-
-if df_new is None:
-    st.error("❌ 'Earthquakes.csv' 파일을 읽을 수 없습니다. 파일의 글자 인코딩 형식을 확인해 주세요.")
-    st.stop()
+            df = pd.read_csv(CSV_PATH, encoding=encoding)
+            st.success(f"✅ '{encoding}' 인코딩으로 파일을 읽었습니다.")
+            return df
+        except (UnicodeDecodeError, Exception):
+            continue
+    
+    # 최후 수단: errors='replace'로 강제 읽기
+    try:
+        df = pd.read_csv(CSV_PATH, encoding='utf-8', errors='replace')
+        st.warning("⚠️ 일부 글자가 깨질 수 있습니다 (강제 읽기 모드).")
+        return df
+    except Exception as e:
+        st.error(f"❌ 파일 읽기 최종 실패: {e}")
+        return None
+        
 # 4. 세션 상태 초기화
 if 'clicked' not in st.session_state:
     st.session_state.clicked = False
